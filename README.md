@@ -30,9 +30,9 @@ cd ars-dashboard && python3 -m http.server 8000
 cd ars-dashboard
 git init && git add . && git commit -m "ARS dashboard"
 gh repo create ars-dashboard --public --source=. --push
-gh api repos/{owner}/ars-dashboard/pages -X POST -f source[branch]=main -f source[path]=/
+gh api repos/{owner}/money/pages -X POST -f source[branch]=main -f source[path]=/
 ```
 
-Or via the UI: push the repo → **Settings → Pages → Source: `main` / root**. The site appears at `https://<user>.github.io/ars-dashboard/`.
+Or via the UI: push the repo → **Settings → Pages → Source: `main` / root**. The site appears at `https://<user>.github.io/money/`.
 
 > Data is delayed and APIs are third-party. Verify before operating with real money.
