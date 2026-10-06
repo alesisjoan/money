@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARS Dashboard — Dólar, Acciones y Conversión EUR→ARS</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2330;
+    --border: #2a3140;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --green: #3fb950;
+    --red: #f85149;
+    --accent: #58a6ff;
+    --gold: #d4af37;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 8px;
+  }
+  h1 { font-size: 1.5rem; margin: 0; }
+  .status { font-size: .8rem; color: var(--muted); }
+  .status #updated { color: var(--accent); }
+  button.refresh {
+    background: var(--accent); color: #0d1117; border: none; border-radius: 8px;
+    padding: 8px 14px; font-weight: 600; cursor: pointer; font-size: .85rem;
+  }
+  button.refresh:hover { filter: brightness(1.1); }
+  button.refresh:disabled { opacity: .5; cursor: wait; }
+  h2 {
+    font-size: .95rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 28px 0 12px; font-weight: 600;
+  }
+  .grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .card .label { font-size: .8rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .card .tag { font-size: .65rem; background: var(--panel2); padding: 2px 6px; border-radius: 6px; color: var(--muted); }
+  .card .value { font-size: 1.6rem; font-weight: 700; margin-top: 6px; }
+  .card .sub { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  /* sparkline */
+  .spark { margin-top: 10px; }
+  .spark .plot { position: relative; height: 48px; }
+  .spark svg { display: block; width: 100%; height: 48px; overflow: visible; }
+  .spark .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .spark .area { fill: var(--accent); opacity: .12; }
+  .spark .grid-l { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .spark .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+  .spark .dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--panel); pointer-events: none; }
+  .spark .tip { position: absolute; bottom: calc(100% + 4px); transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 7px; font-size: .7rem; white-space: nowrap; pointer-events: none; color: var(--text); }
+  .spark .axis { display: flex; justify-content: space-between; font-size: .65rem; color: #5a6675; margin-top: 3px; }
+  [hidden] { display: none !important; }
+  .best { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+
+  /* calculator */
+  .calc { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .calc-amount { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .calc-amount label { font-size: .9rem; color: var(--muted); }
+  input[type=number] {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: .95rem; width: 130px;
+  }
+  input[type=number]:focus { outline: none; border-color: var(--accent); }
+  .paths { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .path { background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; position: relative; }
+  .path h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .path .desc { font-size: .76rem; color: var(--muted); margin-bottom: 14px; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .field label { font-size: .82rem; color: var(--muted); flex: 1; }
+  .field .hint { display: block; font-size: .68rem; color: #5a6675; }
+  .field input { width: 120px; }
+  .result {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+  }
+  .result .big { font-size: 1.5rem; font-weight: 700; }
+  .result .perEur { font-size: .82rem; color: var(--muted); }
+  .winner-badge {
+    position: absolute; top: -10px; right: 14px; background: var(--gold); color: #0d1117;
+    font-size: .7rem; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+  }
+  .verdict { margin-top: 16px; text-align: center; font-size: 1rem; }
+  .verdict strong { color: var(--gold); }
+  .row-actions { margin-top: 12px; }
+  .reset-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 5px 10px; font-size: .72rem; cursor: pointer;
+  }
+  .reset-btn:hover { color: var(--text); border-color: var(--accent); }
+  .err { color: var(--red); font-size: .8rem; }
+  footer { margin-top: 40px; font-size: .72rem; color: #5a6675; text-align: center; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🇦🇷 ARS Dashboard</h1>
+      <div class="status">Actualizado: <span id="updated">—</span> · auto-refresh 60s</div>
+    </div>
+    <button class="refresh" id="refreshBtn" onclick="loadAll()">↻ Actualizar</button>
+  </header>
+
+  <h2>Acciones (BCBA)</h2>
+  <div class="grid" id="stocks"><div class="card"><div class="sub">Cargando…</div></div></div>
+
+  <h2>Dólar</h2>
+  <div class="grid" id="dollars"><div class="card"><div class="sub">Cargando…</div></div></div>
+
+  <h2>Euro</h2>
+  <div class="grid" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
+
+  <h2>USDT / ARS (cripto)</h2>
+  <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
+
+  <h2>¿Conviene? — Pasar EUR (Payoneer) a ARS</h2>
+  <div class="calc">
+    <div class="calc-amount">
+      <label for="eur">Monto en EUR:</label>
+      <input type="number" id="eur" value="100" min="0" step="10" oninput="recalc()">
+      <span class="hint" style="font-size:.75rem;color:var(--muted)">Las tasas se autocompletan con datos en vivo y son editables.</span>
+    </div>
+    <div class="paths">
+
+      <!-- PATH A: Astropay -->
+      <div class="path" id="pathA">
+        <h3>A · Astropay</h3>
+        <div class="desc">Mando EUR a Astropay (comisión) → vendo EUR→ARS en Astropay.</div>
+        <div class="field">
+          <label>Comisión transferencia
+            <span class="hint">Payoneer → Astropay</span>
+          </label>
+          <div><input type="number" id="feeA" value="2" step="0.1" oninput="recalc()"> %</div>
+        </div>
+        <div class="field">
+          <label>Tasa EUR→ARS Astropay
+            <span class="hint">estimada — poné tu tasa real</span>
+          </label>
+          <input type="number" id="rateA" step="1" oninput="recalc()">
+        </div>
+        <div class="result">
+          <div class="big" id="outA">—</div>
+          <div class="perEur" id="perA"></div>
+        </div>
+      </div>
+
+      <!-- PATH B: Binance / USDT -->
+      <div class="path" id="pathB">
+        <h3>B · Binance (USDT)</h3>
+        <div class="desc">Compro USDT con tarjeta Payoneer (comisión) → vendo USDT→ARS en Binance.</div>
+        <div class="field">
+          <label>Comisión tarjeta
+            <span class="hint">compra USDT con Payoneer</span>
+          </label>
+          <div><input type="number" id="feeB" value="2" step="0.1" oninput="recalc()"> %</div>
+        </div>
+        <div class="field">
+          <label>EUR→USDT
+            <span class="hint">tasa de mercado, USDT por 1 EUR</span>
+          </label>
+          <input type="number" id="eurUsdt" step="0.0001" oninput="recalc()">
+        </div>
+        <div class="field">
+          <label>Spread tarjeta
+            <span class="hint">recargo oculto de Binance sobre la tasa</span>
+          </label>
+          <div><input type="number" id="spreadB" value="1.7" step="0.1" oninput="recalc()"> %</div>
+        </div>
+        <div class="field">
+          <label>USDT→ARS
+            <span class="hint">ARS por USDT (venta, Binance)</span>
+          </label>
+          <input type="number" id="usdtArs" step="1" oninput="recalc()">
+        </div>
+        <div class="result">
+          <div class="big" id="outB">—</div>
+          <div class="perEur" id="perB"></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="row-actions">
+      <button class="reset-btn" onclick="loadAll()">Restablecer tasas a valores en vivo</button>
+    </div>
+  </div>
+
+  <footer>
+    Fuentes: <a href="https://dolarapi.com" target="_blank">dolarapi.com</a> ·
+    <a href="https://criptoya.com" target="_blank">criptoya.com</a> ·
+    <a href="https://data912.com" target="_blank">data912.com</a> ·
+    <a href="https://argentinadatos.com" target="_blank">argentinadatos.com</a> ·
+    Binance API. Datos con demora; verificá antes de operar.
+  </footer>
+</div>
+
+<script>
+const fmtARS = n => n == null || isNaN(n) ? "—" : "$" + Number(n).toLocaleString("es-AR", {maximumFractionDigits: 2});
+const fmtNum = (n, d=2) => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("es-AR", {maximumFractionDigits: d});
+
+// live values used to (re)seed the calculator inputs
+const live = { eurUsdt: null, usdtArsBinance: null, usdtArsAstropay: null };
+
+async function getJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(url + " → " + r.status);
+  return r.json();
+}
+
+function card(label, value, sub, opts = {}) {
+  const tag = opts.tag ? `<span class="tag">${opts.tag}</span>` : "";
+  const cls = opts.best ? "card best" : "card";
+  return `<div class="${cls}">
+    <div class="label">${label}${tag}</div>
+    <div class="value">${value}</div>
+    <div class="sub">${sub || ""}</div>
+  </div>`;
+}
+
+function changeClass(pct) {
+  if (pct > 0) return "pos";
+  if (pct < 0) return "neg";
+  return "";
+}
+
+async function loadStocks() {
+  const el = document.getElementById("stocks");
+  try {
+    const data = await getJSON("https://data912.com/live/arg_stocks");
+    const want = ["YPFD", "GGAL"];
+    const rows = want.map(sym => {
+      const s = data.find(d => d.symbol === sym);
+      if (!s) return card(sym, "—", "sin datos");
+      const arrow = s.pct_change > 0 ? "▲" : s.pct_change < 0 ? "▼" : "•";
+      return card(
+        sym,
+        fmtARS(s.c),
+        `<span class="${changeClass(s.pct_change)}">${arrow} ${fmtNum(s.pct_change)}%</span> · bid ${fmtNum(s.px_bid)} / ask ${fmtNum(s.px_ask)}`,
+        { tag: "BCBA" }
+      );
+    });
+    el.innerHTML = rows.join("");
+  } catch (e) {
+    el.innerHTML = card("Acciones", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
+async function loadDollars() {
+  const el = document.getElementById("dollars");
+  try {
+    const data = await getJSON("https://dolarapi.com/v1/dolares");
+    const order = [
+      ["oficial", "Oficial (BNA)", true],
+      ["bolsa", "MEP / Bolsa", false],
+      ["blue", "Blue", false],
+      ["cripto", "Cripto", false],
+    ];
+    el.innerHTML = order.map(([casa, name, hl]) => {
+      const d = data.find(x => x.casa === casa);
+      if (!d) return "";
+      return card(
+        name,
+        fmtARS(d.venta),
+        `compra ${fmtARS(d.compra)}`,
+        { tag: hl ? "★" : "", best: hl }
+      );
+    }).join("");
+  } catch (e) {
+    el.innerHTML = card("Dólar", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
+const fmtDay = iso => { const [, m, d] = iso.split("-"); return `${d}/${m}`; };
+
+// 7-day trend line; points = [{d: "YYYY-MM-DD", v: number}]
+function sparkline(points) {
+  const W = 200, H = 48, pad = 4;
+  const vals = points.map(p => p.v);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const x = i => (i / (points.length - 1)) * W;
+  const y = v => pad + (1 - (v - lo) / span) * (H - 2 * pad);
+  const d = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+  const last = points.length - 1;
+  return `<div class="spark" data-pts='${JSON.stringify(points)}'>
+    <div class="plot">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Tendencia 7 días: de ${fmtARS(vals[0])} a ${fmtARS(vals[last])}">
+        <line class="grid-l" x1="0" x2="${W}" y1="${H - 0.5}" y2="${H - 0.5}"/>
+        <path class="area" d="${d}L${W},${H}L0,${H}Z"/>
+        <path class="line" d="${d}"/>
+        <line class="cross" y1="0" y2="${H}" x1="-10" x2="-10" hidden/>
+      </svg>
+      <div class="dot" style="left:100%;top:${(y(vals[last]) / H * 100).toFixed(1)}%"></div>
+      <div class="tip" hidden></div>
+    </div>
+    <div class="axis"><span>${fmtDay(points[0].d)}</span><span>${fmtDay(points[last].d)}</span></div>
+  </div>`;
+}
+
+function wireSparks(root) {
+  root.querySelectorAll(".spark").forEach(sp => {
+    const pts = JSON.parse(sp.dataset.pts);
+    const svg = sp.querySelector("svg"), cross = sp.querySelector(".cross");
+    const dot = sp.querySelector(".dot"), tip = sp.querySelector(".tip");
+    const vals = pts.map(p => p.v), lo = Math.min(...vals), span = (Math.max(...vals) - lo) || 1;
+    const rest = dot.getAttribute("style");
+    svg.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect();
+      const i = Math.max(0, Math.min(pts.length - 1, Math.round((e.clientX - r.left) / r.width * (pts.length - 1))));
+      const fx = i / (pts.length - 1), fy = (4 + (1 - (pts[i].v - lo) / span) * 40) / 48;
+      cross.setAttribute("x1", fx * 200); cross.setAttribute("x2", fx * 200); cross.hidden = false;
+      dot.style.left = fx * 100 + "%"; dot.style.top = fy * 100 + "%";
+      tip.style.left = Math.min(85, Math.max(15, fx * 100)) + "%";
+      tip.textContent = `${fmtDay(pts[i].d)} · ${fmtARS(pts[i].v)}`; tip.hidden = false;
+    });
+    svg.addEventListener("pointerleave", () => { cross.hidden = true; tip.hidden = true; dot.setAttribute("style", rest); });
+  });
+}
+
+async function loadEuro() {
+  const el = document.getElementById("euro");
+  try {
+    const [now, hist] = await Promise.all([
+      getJSON("https://dolarapi.com/v1/cotizaciones/eur"),
+      getJSON("https://api.argentinadatos.com/v1/cotizaciones/eur").catch(() => []),
+    ]);
+    // last 8 daily closes (= 7-day window); replace today's close with the live quote
+    const pts = hist.filter(h => h.casa === "oficial").slice(-8).map(h => ({ d: h.fecha, v: h.venta }));
+    const today = (now.fechaActualizacion || "").slice(0, 10);
+    if (today && pts.length && pts[pts.length - 1].d === today) pts[pts.length - 1].v = now.venta;
+    else if (today) { pts.push({ d: today, v: now.venta }); if (pts.length > 8) pts.shift(); }
+
+    let sub = `compra ${fmtARS(now.compra)}`;
+    if (pts.length >= 2) {
+      const chg = (pts[pts.length - 1].v - pts[0].v) / pts[0].v * 100;
+      const arrow = chg > 0 ? "▲" : chg < 0 ? "▼" : "•";
+      sub += ` · <span class="${changeClass(chg)}">${arrow} ${fmtNum(chg)}% 7d</span>`;
+    }
+    el.innerHTML = card("Euro oficial", fmtARS(now.venta), sub + (pts.length >= 2 ? sparkline(pts) : ""), { tag: "EUR" });
+    wireSparks(el);
+  } catch (e) {
+    el.innerHTML = card("Euro", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
+async function loadCrypto() {
+  const el = document.getElementById("crypto");
+  try {
+    const data = await getJSON("https://criptoya.com/api/usdt/ars/1");
+    // only Binance + Binance P2P
+    const picks = [["binance", "Binance"], ["binancep2p", "Binance P2P"]];
+    const bidOf = k => data[k] ? (data[k].totalBid || data[k].bid) : null;
+
+    // calculator uses the P2P bid (how you actually sell USDT→ARS on Binance AR)
+    live.usdtArsBinance = bidOf("binancep2p") || bidOf("binance") || null;
+    live.usdtArsAstropay = (data.astropay && (data.astropay.totalBid || data.astropay.bid)) || null;
+
+    // highlight the better-paying of the two
+    const avail = picks.filter(([k]) => data[k]);
+    let bestKey = null, bestBid = -1;
+    avail.forEach(([k]) => { const b = bidOf(k); if (b > bestBid) { bestBid = b; bestKey = k; } });
+
+    el.innerHTML = avail.map(([k, name]) => {
+      const d = data[k];
+      const bid = d.totalBid || d.bid, ask = d.totalAsk || d.ask;
+      return card(
+        name,
+        fmtARS(bid),
+        `venta(bid) ${fmtARS(bid)} · compra(ask) ${fmtARS(ask)}`,
+        { tag: k === bestKey ? "MEJOR" : "USDT", best: k === bestKey }
+      );
+    }).join("") || card("USDT/ARS", "—", "sin datos");
+  } catch (e) {
+    el.innerHTML = card("USDT/ARS", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
+async function loadEurUsdt() {
+  try {
+    const d = await getJSON("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT");
+    live.eurUsdt = parseFloat(d.price); // USDT per 1 EUR
+  } catch (e) {
+    // fallback via criptoya usdt/eur (ARS-independent): 1/ask ≈ EUR per USDT
+    try {
+      const d = await getJSON("https://criptoya.com/api/usdt/eur/1");
+      const ask = d.binance ? (d.binance.totalAsk || d.binance.ask) : null; // EUR per USDT
+      if (ask) live.eurUsdt = 1 / ask;
+    } catch (_) { live.eurUsdt = null; }
+  }
+}
+
+function seedCalc() {
+  const set = (id, v, d) => {
+    const el = document.getElementById(id);
+    if (v != null && !isNaN(v)) el.value = (typeof d === "number") ? Number(v).toFixed(d) : v;
+  };
+  set("eurUsdt", live.eurUsdt, 4);
+  set("usdtArs", live.usdtArsBinance, 2);
+  // Astropay EUR→ARS estimate = USDT/ARS(astropay) * EUR/USDT
+  if (live.usdtArsAstropay && live.eurUsdt) {
+    set("rateA", live.usdtArsAstropay * live.eurUsdt, 2);
+  } else if (live.usdtArsBinance && live.eurUsdt) {
+    set("rateA", live.usdtArsBinance * live.eurUsdt, 2);
+  }
+  recalc();
+}
+
+function recalc() {
+  const eur = parseFloat(document.getElementById("eur").value) || 0;
+  const feeA = parseFloat(document.getElementById("feeA").value) || 0;
+  const rateA = parseFloat(document.getElementById("rateA").value) || 0;
+  const feeB = parseFloat(document.getElementById("feeB").value) || 0;
+  const eurUsdt = parseFloat(document.getElementById("eurUsdt").value) || 0;
+  const spreadB = parseFloat(document.getElementById("spreadB").value) || 0;
+  const usdtArs = parseFloat(document.getElementById("usdtArs").value) || 0;
+
+  // Path A: EUR -(fee)-> EUR -> ARS
+  const eurA = eur * (1 - feeA / 100);
+  const arsA = eurA * rateA;
+
+  // Path B: EUR -(fee)-> EUR -> USDT (market rate minus card spread) -> ARS
+  const eurB = eur * (1 - feeB / 100);
+  const usdt = eurB * eurUsdt * (1 - spreadB / 100);
+  const arsB = usdt * usdtArs;
+
+  document.getElementById("outA").textContent = fmtARS(arsA);
+  document.getElementById("perA").textContent = eur ? `${fmtARS(arsA / eur)} por EUR` : "";
+  document.getElementById("outB").textContent = fmtARS(arsB);
+  document.getElementById("perB").textContent = eur ? `${fmtARS(arsB / eur)} · ${fmtNum(usdt)} USDT` : "";
+
+  const pA = document.getElementById("pathA");
+  const pB = document.getElementById("pathB");
+  pA.querySelectorAll(".winner-badge").forEach(n => n.remove());
+  pB.querySelectorAll(".winner-badge").forEach(n => n.remove());
+  pA.classList.remove("best"); pB.classList.remove("best");
+
+  const v = document.getElementById("verdict");
+  if (!arsA && !arsB) { v.innerHTML = ""; return; }
+  if (arsA === arsB) { v.innerHTML = "Ambos caminos dan lo mismo."; return; }
+
+  const aWins = arsA > arsB;
+  const winEl = aWins ? pA : pB;
+  const winName = aWins ? "Astropay" : "Binance";
+  const hi = Math.max(arsA, arsB), lo = Math.min(arsA, arsB);
+  const diff = hi - lo;
+  const pct = lo ? (diff / lo) * 100 : 0;
+
+  winEl.classList.add("best");
+  const badge = document.createElement("div");
+  badge.className = "winner-badge";
+  badge.textContent = "✓ CONVIENE";
+  winEl.appendChild(badge);
+
+  v.innerHTML = `Conviene <strong>${winName}</strong> — ${fmtARS(diff)} más (${fmtNum(pct)}%) sobre ${fmtNum(eur)} EUR.`;
+}
+
+async function loadAll() {
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = true; btn.textContent = "Cargando…";
+  await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt()]);
+  seedCalc();
+  document.getElementById("updated").textContent = new Date().toLocaleTimeString("es-AR");
+  btn.disabled = false; btn.textContent = "↻ Actualizar";
+}
+
+loadAll();
+setInterval(loadAll, 60000);
+</script>
+</body>
+</html>
