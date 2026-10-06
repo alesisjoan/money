@@ -126,7 +126,7 @@
   <h2>Dólar</h2>
   <div class="grid" id="dollars"><div class="card"><div class="sub">Cargando…</div></div></div>
 
-  <h2>Euro</h2>
+  <h2>Euro / Dólar</h2>
   <div class="grid" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
 
   <h2>USDT / ARS (cripto)</h2>
@@ -207,7 +207,6 @@
     Fuentes: <a href="https://dolarapi.com" target="_blank">dolarapi.com</a> ·
     <a href="https://criptoya.com" target="_blank">criptoya.com</a> ·
     <a href="https://data912.com" target="_blank">data912.com</a> ·
-    <a href="https://argentinadatos.com" target="_blank">argentinadatos.com</a> ·
     Binance API. Datos con demora; verificá antes de operar.
   </footer>
 </div>
@@ -288,10 +287,11 @@ async function loadDollars() {
   }
 }
 
+const fmtUSD = n => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("es-AR", {minimumFractionDigits: 4, maximumFractionDigits: 4});
 const fmtDay = iso => { const [, m, d] = iso.split("-"); return `${d}/${m}`; };
 
 // 7-day trend line; points = [{d: "YYYY-MM-DD", v: number}]
-function sparkline(points) {
+function sparkline(points, fmt = fmtARS) {
   const W = 200, H = 48, pad = 4;
   const vals = points.map(p => p.v);
   const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
@@ -299,9 +299,9 @@ function sparkline(points) {
   const y = v => pad + (1 - (v - lo) / span) * (H - 2 * pad);
   const d = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
   const last = points.length - 1;
-  return `<div class="spark" data-pts='${JSON.stringify(points)}'>
+  return `<div class="spark" data-fmt="${fmt === fmtUSD ? "usd" : "ars"}" data-pts='${JSON.stringify(points)}'>
     <div class="plot">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Tendencia 7 días: de ${fmtARS(vals[0])} a ${fmtARS(vals[last])}">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Tendencia 7 días: de ${fmt(vals[0])} a ${fmt(vals[last])}">
         <line class="grid-l" x1="0" x2="${W}" y1="${H - 0.5}" y2="${H - 0.5}"/>
         <path class="area" d="${d}L${W},${H}L0,${H}Z"/>
         <path class="line" d="${d}"/>
@@ -321,6 +321,7 @@ function wireSparks(root) {
     const dot = sp.querySelector(".dot"), tip = sp.querySelector(".tip");
     const vals = pts.map(p => p.v), lo = Math.min(...vals), span = (Math.max(...vals) - lo) || 1;
     const rest = dot.getAttribute("style");
+    const fmt = sp.dataset.fmt === "usd" ? fmtUSD : fmtARS;
     svg.addEventListener("pointermove", e => {
       const r = svg.getBoundingClientRect();
       const i = Math.max(0, Math.min(pts.length - 1, Math.round((e.clientX - r.left) / r.width * (pts.length - 1))));
@@ -328,7 +329,7 @@ function wireSparks(root) {
       cross.setAttribute("x1", fx * 200); cross.setAttribute("x2", fx * 200); cross.hidden = false;
       dot.style.left = fx * 100 + "%"; dot.style.top = fy * 100 + "%";
       tip.style.left = Math.min(85, Math.max(15, fx * 100)) + "%";
-      tip.textContent = `${fmtDay(pts[i].d)} · ${fmtARS(pts[i].v)}`; tip.hidden = false;
+      tip.textContent = `${fmtDay(pts[i].d)} · ${fmt(pts[i].v)}`; tip.hidden = false;
     });
     svg.addEventListener("pointerleave", () => { cross.hidden = true; tip.hidden = true; dot.setAttribute("style", rest); });
   });
@@ -337,26 +338,21 @@ function wireSparks(root) {
 async function loadEuro() {
   const el = document.getElementById("euro");
   try {
-    const [now, hist] = await Promise.all([
-      getJSON("https://dolarapi.com/v1/cotizaciones/eur"),
-      getJSON("https://api.argentinadatos.com/v1/cotizaciones/eur").catch(() => []),
-    ]);
-    // last 8 daily closes (= 7-day window); replace today's close with the live quote
-    const pts = hist.filter(h => h.casa === "oficial").slice(-8).map(h => ({ d: h.fecha, v: h.venta }));
-    const today = (now.fechaActualizacion || "").slice(0, 10);
-    if (today && pts.length && pts[pts.length - 1].d === today) pts[pts.length - 1].v = now.venta;
-    else if (today) { pts.push({ d: today, v: now.venta }); if (pts.length > 8) pts.shift(); }
-
-    let sub = `compra ${fmtARS(now.compra)}`;
-    if (pts.length >= 2) {
-      const chg = (pts[pts.length - 1].v - pts[0].v) / pts[0].v * 100;
-      const arrow = chg > 0 ? "▲" : chg < 0 ? "▼" : "•";
-      sub += ` · <span class="${changeClass(chg)}">${arrow} ${fmtNum(chg)}% 7d</span>`;
-    }
-    el.innerHTML = card("Euro oficial", fmtARS(now.venta), sub + (pts.length >= 2 ? sparkline(pts) : ""), { tag: "EUR" });
+    // last 8 daily candles (= 7-day window); the last one is today's, still open, so its close is the live price
+    const k = await getJSON("https://api.binance.com/api/v3/klines?symbol=EURUSDT&interval=1d&limit=8");
+    const pts = k.map(c => ({ d: new Date(c[0]).toISOString().slice(0, 10), v: parseFloat(c[4]) }));
+    const first = pts[0].v, last = pts[pts.length - 1].v;
+    const chg = (last - first) / first * 100;
+    const arrow = chg > 0 ? "▲" : chg < 0 ? "▼" : "•";
+    el.innerHTML = card(
+      "EUR / USD",
+      fmtUSD(last),
+      `USD por 1 EUR · <span class="${changeClass(chg)}">${arrow} ${fmtNum(chg)}% 7d</span>` + sparkline(pts, fmtUSD),
+      { tag: "Binance" }
+    );
     wireSparks(el);
   } catch (e) {
-    el.innerHTML = card("Euro", "—", `<span class="err">Error: ${e.message}</span>`);
+    el.innerHTML = card("EUR / USD", "—", `<span class="err">Error: ${e.message}</span>`);
   }
 }
 

@@ -6,7 +6,7 @@ Static single-page dashboard (just `index.html`) showing live Argentine market d
 
 - **Acciones (BCBA):** YPFD, GGAL — last price, % change, bid/ask — via [data912.com](https://data912.com)
 - **Dólar:** Oficial (BNA), MEP/Bolsa, Blue, Cripto, Tarjeta — via [dolarapi.com](https://dolarapi.com)
-- **Euro:** oficial venta/compra + 7-day trend sparkline — live from [dolarapi.com](https://dolarapi.com), history from [argentinadatos.com](https://argentinadatos.com)
+- **EUR / USD:** live rate + 7-day trend sparkline — via Binance `EURUSDT` daily candles
 - **USDT/ARS:** Binance, Astropay + others, with the best-paying exchange highlighted — via [criptoya.com](https://criptoya.com)
 - **Calculadora "¿Conviene?":** compares two paths to turn Payoneer EUR into ARS:
   - **A · Astropay** — send EUR to Astropay (fee) → sell EUR→ARS
