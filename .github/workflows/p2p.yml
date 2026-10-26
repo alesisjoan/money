@@ -1,0 +1,32 @@
+name: Binance P2P price
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [scripts/p2p.py, .github/workflows/p2p.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p2p
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir out && python3 scripts/p2p.py out/p2p.json
+      # single-commit orphan branch so main doesn't fill up with data commits
+      - run: |
+          cd out
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add p2p.json
+          git commit -qm "P2P price $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data

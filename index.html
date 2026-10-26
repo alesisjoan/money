@@ -422,10 +422,23 @@ async function loadEuro() {
   }
 }
 
+// bait-free Binance P2P price, published by .github/workflows/p2p.yml (Binance blocks CORS)
+const P2P_URL = "https://raw.githubusercontent.com/alesisjoan/money/data/p2p.json";
+const P2P_MAX_AGE = 30 * 60; // seconds
+
+async function loadP2P() {
+  try {
+    const p = await getJSON(P2P_URL);
+    return Date.now() / 1000 - p.time <= P2P_MAX_AGE ? p : null;
+  } catch (_) { return null; }
+}
+
 async function loadCrypto() {
   const el = document.getElementById("crypto");
   try {
-    const data = await getJSON("https://criptoya.com/api/usdt/ars/1");
+    const [data, p2p] = await Promise.all([getJSON("https://criptoya.com/api/usdt/ars/1"), loadP2P()]);
+    // criptoya's P2P price is the raw top ad, which is often bait
+    if (p2p) data.binancep2p = { bid: p2p.bid, ask: p2p.ask };
     // only Binance + Binance P2P
     const picks = [["binance", "Binance"], ["binancep2p", "Binance P2P"]];
     const bidOf = k => data[k] ? (data[k].totalBid || data[k].bid) : null;
@@ -444,10 +457,13 @@ async function loadCrypto() {
     el.innerHTML = avail.map(([k, name]) => {
       const d = data[k];
       const bid = d.totalBid || d.bid, ask = d.totalAsk || d.ask;
+      const note = k !== "binancep2p" ? ""
+        : p2p ? `<br>sin ofertas trampa · hace ${Math.round((Date.now() / 1000 - p2p.time) / 60)} min`
+        : `<br><span class="neg">⚠ sin filtrar: puede incluir oferta trampa</span>`;
       return card(
         name,
         fmtARS(bid),
-        `venta(bid) ${fmtARS(bid)} · compra(ask) ${fmtARS(ask)}`,
+        `venta(bid) ${fmtARS(bid)} · compra(ask) ${fmtARS(ask)}${note}`,
         { tag: k === bestKey ? "MEJOR" : "USDT", best: k === bestKey }
       );
     }).join("") || card("USDT/ARS", "—", "sin datos");
