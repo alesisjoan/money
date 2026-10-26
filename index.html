@@ -227,7 +227,7 @@ const fmtARS = n => n == null || isNaN(n) ? "—" : "$" + Number(n).toLocaleStri
 const fmtNum = (n, d=2) => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("es-AR", {maximumFractionDigits: d});
 
 // live values used to (re)seed the calculator inputs
-const live = { eurUsdt: null, usdtArsBinance: null, usdtArsAstropay: null, dolares: null };
+const live = { eurUsdt: null, usdtArsBinance: null, usdtArsBinanceAsk: null, usdtArsAstropay: null, dolares: null };
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -274,31 +274,43 @@ async function loadStocks() {
 }
 
 async function loadDollars() {
-  const el = document.getElementById("dollars");
   try {
-    const data = await getJSON("https://dolarapi.com/v1/dolares");
-    const order = [
+    live.dolares = await getJSON("https://dolarapi.com/v1/dolares");
+  } catch (e) {
+    live.dolares = null;
+    const err = `<span class="err">Error: ${e.message}</span>`;
+    document.getElementById("dollars").innerHTML = card("Dólar", "—", err);
+    document.getElementById("gaps").innerHTML = card("Brecha", "—", err);
+  }
+}
+
+// runs after loadCrypto: dolarapi "cripto" is a multi-exchange average, so swap in Binance P2P
+function renderDollars() {
+  const data = live.dolares;
+  if (!data) return;
+  const cripto = data.find(x => x.casa === "cripto");
+  const p2p = !!(cripto && live.usdtArsBinance);
+  if (p2p) {
+    cripto.compra = live.usdtArsBinance;
+    cripto.venta = live.usdtArsBinanceAsk || cripto.venta;
+  }
+  const el = document.getElementById("dollars");
+  const order = [
       ["oficial", "Oficial (BNA)", true],
       ["bolsa", "MEP / Bolsa", false],
       ["blue", "Blue", false],
-      ["cripto", "Cripto", false],
-    ];
-    el.innerHTML = order.map(([casa, name, hl]) => {
-      const d = data.find(x => x.casa === casa);
-      if (!d) return "";
-      return card(
-        name,
-        fmtARS(d.venta),
-        `compra ${fmtARS(d.compra)}`,
-        { tag: hl ? "★" : "", best: hl }
-      );
-    }).join("");
-    live.dolares = data;
-  } catch (e) {
-    el.innerHTML = card("Dólar", "—", `<span class="err">Error: ${e.message}</span>`);
-    live.dolares = null;
-    document.getElementById("gaps").innerHTML = card("Brecha", "—", `<span class="err">Error: ${e.message}</span>`);
-  }
+      ["cripto", p2p ? "Cripto (Binance P2P)" : "Cripto", false],
+  ];
+  el.innerHTML = order.map(([casa, name, hl]) => {
+    const d = data.find(x => x.casa === casa);
+    if (!d) return "";
+    return card(
+      name,
+      fmtARS(d.venta),
+      `compra ${fmtARS(d.compra)}`,
+      { tag: hl ? "★" : "", best: hl }
+    );
+  }).join("");
 }
 
 // fixed cost per leg (%): broker commission on MEP; selling USDT is free
@@ -317,9 +329,7 @@ function gapRoute(q, from, to) {
 function renderGaps(data) {
   const el = document.getElementById("gaps");
   if (!data) return; // dollar fetch failed; loadDollars already shows the error
-  const q = Object.fromEntries(data.map(d => [d.casa, { ...d }]));
-  // dolarapi "cripto" is a multi-exchange average; use what Binance P2P actually pays
-  if (q.cripto && live.usdtArsBinance) q.cripto.compra = live.usdtArsBinance;
+  const q = Object.fromEntries(data.map(d => [d.casa, d]));
   const routes = GAP_PAIRS
     .filter(([a, b]) => q[a] && q[b])
     .map(([a, b]) => {
@@ -422,6 +432,8 @@ async function loadCrypto() {
 
     // calculator uses the P2P bid (how you actually sell USDT→ARS on Binance AR)
     live.usdtArsBinance = bidOf("binancep2p") || bidOf("binance") || null;
+    const askOf = k => data[k] ? (data[k].totalAsk || data[k].ask) : null;
+    live.usdtArsBinanceAsk = askOf("binancep2p") || askOf("binance") || null;
     live.usdtArsAstropay = (data.astropay && (data.astropay.totalBid || data.astropay.bid)) || null;
 
     // highlight the better-paying of the two
@@ -528,6 +540,7 @@ async function loadAll() {
   btn.disabled = true; btn.textContent = "Cargando…";
   await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt()]);
   seedCalc();
+  renderDollars();
   renderGaps(live.dolares);
   document.getElementById("updated").textContent = new Date().toLocaleTimeString("es-AR");
   btn.disabled = false; btn.textContent = "↻ Actualizar";
