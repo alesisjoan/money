@@ -69,6 +69,10 @@
   .spark .tip { position: absolute; bottom: calc(100% + 4px); transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 7px; font-size: .7rem; white-space: nowrap; pointer-events: none; color: var(--text); }
   .spark .axis { display: flex; justify-content: space-between; font-size: .65rem; color: #5a6675; margin-top: 3px; }
   [hidden] { display: none !important; }
+  /* gap / arbitrage */
+  .contents { display: contents; }
+  .gap-top .value { font-size: 2.4rem; line-height: 1.2; }
+  .gap-note { font-size: .72rem; color: #5a6675; margin-top: 8px; }
   .best { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 
   /* calculator */
@@ -126,8 +130,12 @@
   <h2>Dólar</h2>
   <div class="grid" id="dollars"><div class="card"><div class="sub">Cargando…</div></div></div>
 
-  <h2>Euro / Dólar</h2>
-  <div class="grid" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
+  <h2>Euro / Dólar · Brecha</h2>
+  <div class="grid">
+    <div class="contents" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
+    <div class="contents" id="gaps"><div class="card"><div class="sub">Cargando…</div></div></div>
+  </div>
+  <div class="gap-note">Neto de comisiones estimadas (cripto 1%, MEP 0,5%, oficial y blue 0%). Conviene si supera el 5%. Vendés al precio de compra y comprás al de venta.</div>
 
   <h2>USDT / ARS (cripto)</h2>
   <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
@@ -282,9 +290,49 @@ async function loadDollars() {
         { tag: hl ? "★" : "", best: hl }
       );
     }).join("");
+    renderGaps(data);
   } catch (e) {
     el.innerHTML = card("Dólar", "—", `<span class="err">Error: ${e.message}</span>`);
+    document.getElementById("gaps").innerHTML = card("Brecha", "—", `<span class="err">Error: ${e.message}</span>`);
   }
+}
+
+// fixed cost per leg (%): spread/withdrawal on crypto, broker commission on MEP
+const GAP_FEES = { cripto: 1, bolsa: 0.5, oficial: 0, blue: 0 };
+const GAP_NAMES = { cripto: "USDT", bolsa: "USD MEP", oficial: "USD banco", blue: "USD blue" };
+const GAP_PAIRS = [["cripto", "oficial"], ["cripto", "bolsa"], ["cripto", "blue"]];
+const GAP_MIN = 5;
+
+// sell 1 unit of `from` at its compra, buy `to` at its venta, net of fees on both legs
+function gapRoute(q, from, to) {
+  const gross = q[from].compra / q[to].venta;
+  const net = gross * (1 - GAP_FEES[from] / 100) * (1 - GAP_FEES[to] / 100);
+  return { from, to, pct: (net - 1) * 100 };
+}
+
+function renderGaps(data) {
+  const el = document.getElementById("gaps");
+  const q = Object.fromEntries(data.map(d => [d.casa, d]));
+  const routes = GAP_PAIRS
+    .filter(([a, b]) => q[a] && q[b])
+    .map(([a, b]) => {
+      // whichever direction pays, given today's quotes
+      const r1 = gapRoute(q, a, b), r2 = gapRoute(q, b, a);
+      return r1.pct >= r2.pct ? r1 : r2;
+    })
+    .sort((x, y) => y.pct - x.pct);
+  if (!routes.length) { el.innerHTML = card("Brecha", "—", "sin datos"); return; }
+
+  el.innerHTML = routes.map((r, i) => {
+    const ok = r.pct >= GAP_MIN;
+    const html = card(
+      `${GAP_NAMES[r.from]} → ${GAP_NAMES[r.to]}`,
+      `<span class="${ok ? "pos" : r.pct < 0 ? "neg" : ""}">${r.pct > 0 ? "+" : ""}${fmtNum(r.pct)}%</span>`,
+      "",
+      { tag: ok ? "CONVIENE" : i === 0 ? "MEJOR" : "neto", best: i === 0 }
+    );
+    return i === 0 ? html.replace('class="card best"', 'class="card best gap-top"') : html;
+  }).join("");
 }
 
 const fmtUSD = n => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("es-AR", {minimumFractionDigits: 4, maximumFractionDigits: 4});
