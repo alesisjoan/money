@@ -72,6 +72,9 @@
   /* gap / arbitrage */
   .contents { display: contents; }
   .gap-top .value { font-size: 2.4rem; line-height: 1.2; }
+  .gap-small { padding: 10px 14px; align-self: start; }
+  .gap-small .value { font-size: 1.05rem; margin-top: 2px; }
+  .gap-small .sub { display: none; }
   .gap-note { font-size: .72rem; color: #5a6675; margin-top: 8px; }
   .best { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 
@@ -331,7 +334,9 @@ function renderGaps(data) {
       "",
       { tag: ok ? "CONVIENE" : i === 0 ? "MEJOR" : "neto", best: i === 0 }
     );
-    return i === 0 ? html.replace('class="card best"', 'class="card best gap-top"') : html;
+    return i === 0
+      ? html.replace('class="card best"', 'class="card best gap-top"')
+      : html.replace('class="card"', 'class="card gap-small"');
   }).join("");
 }
 
