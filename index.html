@@ -138,7 +138,7 @@
     <div class="contents" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
     <div class="contents" id="gaps"><div class="card"><div class="sub">Cargando…</div></div></div>
   </div>
-  <div class="gap-note">Neto de comisiones estimadas (MEP 0,5%; cripto, oficial y blue 0%). Conviene si supera el 5%. Vendés al precio de compra y comprás al de venta.</div>
+  <div class="gap-note">Neto de comisiones estimadas (MEP 0,5%; cripto, oficial y blue 0%). Conviene si supera el 5%. USDT al precio de Binance P2P; comprás dólares al precio de venta.</div>
 
   <h2>USDT / ARS (cripto)</h2>
   <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
@@ -227,7 +227,7 @@ const fmtARS = n => n == null || isNaN(n) ? "—" : "$" + Number(n).toLocaleStri
 const fmtNum = (n, d=2) => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("es-AR", {maximumFractionDigits: d});
 
 // live values used to (re)seed the calculator inputs
-const live = { eurUsdt: null, usdtArsBinance: null, usdtArsAstropay: null };
+const live = { eurUsdt: null, usdtArsBinance: null, usdtArsAstropay: null, dolares: null };
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -293,9 +293,10 @@ async function loadDollars() {
         { tag: hl ? "★" : "", best: hl }
       );
     }).join("");
-    renderGaps(data);
+    live.dolares = data;
   } catch (e) {
     el.innerHTML = card("Dólar", "—", `<span class="err">Error: ${e.message}</span>`);
+    live.dolares = null;
     document.getElementById("gaps").innerHTML = card("Brecha", "—", `<span class="err">Error: ${e.message}</span>`);
   }
 }
@@ -315,7 +316,10 @@ function gapRoute(q, from, to) {
 
 function renderGaps(data) {
   const el = document.getElementById("gaps");
-  const q = Object.fromEntries(data.map(d => [d.casa, d]));
+  if (!data) return; // dollar fetch failed; loadDollars already shows the error
+  const q = Object.fromEntries(data.map(d => [d.casa, { ...d }]));
+  // dolarapi "cripto" is a multi-exchange average; use what Binance P2P actually pays
+  if (q.cripto && live.usdtArsBinance) q.cripto.compra = live.usdtArsBinance;
   const routes = GAP_PAIRS
     .filter(([a, b]) => q[a] && q[b])
     .map(([a, b]) => {
@@ -524,6 +528,7 @@ async function loadAll() {
   btn.disabled = true; btn.textContent = "Cargando…";
   await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt()]);
   seedCalc();
+  renderGaps(live.dolares);
   document.getElementById("updated").textContent = new Date().toLocaleTimeString("es-AR");
   btn.disabled = false; btn.textContent = "↻ Actualizar";
 }
