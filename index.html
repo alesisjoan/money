@@ -138,7 +138,7 @@
     <div class="contents" id="euro"><div class="card"><div class="sub">Cargando…</div></div></div>
     <div class="contents" id="gaps"><div class="card"><div class="sub">Cargando…</div></div></div>
   </div>
-  <div class="gap-note">Neto de comisiones estimadas (cripto 1%, MEP 0,5%, oficial y blue 0%). Conviene si supera el 5%. Vendés al precio de compra y comprás al de venta.</div>
+  <div class="gap-note">Neto de comisiones estimadas (MEP 0,5%; cripto, oficial y blue 0%). Conviene si supera el 5%. Vendés al precio de compra y comprás al de venta.</div>
 
   <h2>USDT / ARS (cripto)</h2>
   <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
@@ -300,8 +300,8 @@ async function loadDollars() {
   }
 }
 
-// fixed cost per leg (%): spread/withdrawal on crypto, broker commission on MEP
-const GAP_FEES = { cripto: 1, bolsa: 0.5, oficial: 0, blue: 0 };
+// fixed cost per leg (%): broker commission on MEP; selling USDT is free
+const GAP_FEES = { cripto: 0, bolsa: 0.5, oficial: 0, blue: 0 };
 const GAP_NAMES = { cripto: "USDT", bolsa: "USD MEP", oficial: "USD banco", blue: "USD blue" };
 const GAP_PAIRS = [["cripto", "oficial"], ["cripto", "bolsa"], ["cripto", "blue"]];
 const GAP_MIN = 5;
