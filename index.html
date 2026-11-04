@@ -140,6 +140,9 @@
   </div>
   <div class="gap-note">Neto de comisiones estimadas (MEP 0,5%; cripto, oficial y blue 0%). Conviene si supera el 5%. USDT al precio de Binance P2P; comprás dólares al precio de venta.</div>
 
+  <h2>Vuelo Sky · AEP → Cusco · 28/01</h2>
+  <div class="grid" id="sky"><div class="card"><div class="sub">Cargando…</div></div></div>
+
   <h2>USDT / ARS (cripto)</h2>
   <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
 
@@ -472,6 +475,37 @@ async function loadCrypto() {
   }
 }
 
+// Sky flight price + history, published every 30 min by .github/workflows/sky.yml
+const SKY_URL = "https://raw.githubusercontent.com/alesisjoan/money/sky/sky.json";
+
+async function loadSky() {
+  const el = document.getElementById("sky");
+  try {
+    const s = await getJSON(SKY_URL);
+    const c = s.current;
+    const ago = Math.round((Date.now() / 1000 - s.time) / 60);
+    const when = t => new Date(t * 1000).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const priced = s.history.filter(h => h.p != null);
+    const min = priced.reduce((a, h) => (!a || h.p < a.p ? h : a), null);
+    const prev = s.history.length > 1 ? s.history[s.history.length - 2] : null;
+    const link = `<a href="${s.url}" target="_blank" rel="noopener" style="color:var(--accent)">ver en Sky</a>`;
+    const main = !c
+      ? card("09:00 AEP → CUZ", "—", `<span class="neg">No disponible / agotado</span> · hace ${ago} min · ${link}`)
+      : card(
+          `${c.departure.slice(11, 16)} AEP → ${c.arrival.slice(11, 16)} CUZ`,
+          fmtARS(c.price),
+          `tarifa ${fmtARS(c.fare)} + tasas ${fmtARS(c.taxes)} · ${c.seats} asientos · ${Math.floor(c.duration / 60)}h${String(c.duration % 60).padStart(2, "0")}`
+          + (prev ? `<br>antes ${prev.p == null ? "agotado" : fmtARS(prev.p)} · cambió ${when(s.history[s.history.length - 1].t)}` : "")
+          + `<br>hace ${ago} min · ${link}`,
+          { tag: c.brand === "ZO" ? "BASIC" : c.brand, best: min && c.price <= min.p }
+        );
+    const low = min ? card("Mínimo visto", fmtARS(min.p), `${when(min.t)} · desde ${when(s.history[0].t)}`) : "";
+    el.innerHTML = main + low;
+  } catch (e) {
+    el.innerHTML = card("Vuelo Sky", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
 async function loadEurUsdt() {
   try {
     const d = await getJSON("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT");
@@ -554,7 +588,7 @@ function recalc() {
 async function loadAll() {
   const btn = document.getElementById("refreshBtn");
   btn.disabled = true; btn.textContent = "Cargando…";
-  await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt()]);
+  await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt(), loadSky()]);
   seedCalc();
   renderDollars();
   renderGaps(live.dolares);

@@ -1,0 +1,36 @@
+name: Sky flight price
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [scripts/sky.py, .github/workflows/sky.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sky
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # previous run's file carries the price history
+      - run: |
+          mkdir out
+          curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/sky/sky.json" -o prev.json || true
+          python3 scripts/sky.py out/sky.json prev.json
+      # own single-commit orphan branch: the p2p workflow force-pushes "data", so sharing it would wipe this file
+      - run: |
+          cd out
+          git init -q -b sky
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sky.json
+          git commit -qm "Sky price $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" sky
