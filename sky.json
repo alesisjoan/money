@@ -1,0 +1,31 @@
+{
+ "time": 1794665006,
+ "route": "AEP-CUZ",
+ "date": "2027-01-28",
+ "url": "https://initial-sale.skyairline.com/es/argentina?origin=AEP&destination=CUZ&departureDate=2027-01-28&arrivalDate=2027-01-28&flightType=OW&ADT=1",
+ "current": {
+  "price": 543408.4,
+  "fare": 276320,
+  "taxes": 267088.4,
+  "currency": "ARS",
+  "brand": "ZO",
+  "seats": 4,
+  "departure": "2027-01-28T09:00:00",
+  "arrival": "2027-01-28T16:10:00",
+  "duration": 550,
+  "flights": [
+   "H25572",
+   "H25015"
+  ]
+ },
+ "history": [
+  {
+   "t": 1793827753,
+   "p": 554162.9
+  },
+  {
+   "t": 1794249447,
+   "p": 543408.4
+  }
+ ]
+}
