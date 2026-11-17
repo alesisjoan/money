@@ -143,6 +143,9 @@
   <h2>Vuelo Sky · AEP → Cusco · 28/01</h2>
   <div class="grid" id="sky"><div class="card"><div class="sub">Cargando…</div></div></div>
 
+  <h2>Vuelo directo · Buenos Aires → Lima · 28/01</h2>
+  <div class="grid" id="lim"><div class="card"><div class="sub">Cargando…</div></div></div>
+
   <h2>USDT / ARS (cripto)</h2>
   <div class="grid" id="crypto"><div class="card"><div class="sub">Cargando…</div></div></div>
 
@@ -506,6 +509,52 @@ async function loadSky() {
   }
 }
 
+// Cheapest direct BUE→LIM on Sky and JetSMART, published every 30 min by .github/workflows/lim.yml
+const LIM_URL = "https://raw.githubusercontent.com/alesisjoan/money/lim/lim.json";
+
+async function loadLim() {
+  const el = document.getElementById("lim");
+  try {
+    const d = await getJSON(LIM_URL);
+    const when = t => new Date(t * 1000).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const hm = m => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+    const airlines = [["sky", "Sky"], ["jetsmart", "JetSMART"]];
+    const fmtDollars = n => n == null ? "—" : "US$ " + Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // compare in USD (what you'd actually pay, without the FX taxes) when both airlines have it
+    const curs = airlines.map(([k]) => d[k] && d[k].current).filter(Boolean);
+    const key = curs.length && curs.every(c => c.usd != null) ? "usd" : "price";
+    const cheapest = curs.length ? Math.min(...curs.map(c => c[key]).filter(p => p != null)) : null;
+    el.innerHTML = airlines.map(([k, name]) => {
+      const s = d[k];
+      if (!s) return card(name, "—", "sin datos");
+      const link = `<a href="${s.url}" target="_blank" rel="noopener" style="color:var(--accent)">ver en ${name}</a>`;
+      const ago = s.time ? `hace ${Math.round((Date.now() / 1000 - s.time) / 60)} min` : "nunca";
+      const err = s.error ? `<br><span class="err">Última consulta falló: ${s.error.slice(0, 80)}</span>` : "";
+      const c = s.current;
+      if (!c) return card(name, "—", `<span class="neg">Sin vuelo directo / agotado</span> · ${ago} · ${link}${err}`);
+      const hist = s.history || [];
+      const priced = hist.filter(h => h.p != null);
+      const min = priced.reduce((a, h) => (!a || h.p < a.p ? h : a), null);
+      const prev = hist.length > 1 ? hist[hist.length - 2] : null;
+      const detail = k === "sky"
+        ? `tarifa ${fmtARS(c.fare)} + tasas ${fmtARS(c.taxes)} · ${c.seats} asientos`
+        : `con tasas · Club ${fmtARS(c.club)}`;
+      return card(
+        `${name} · ${c.departure.slice(11, 16)} ${c.from} → ${c.arrival.slice(11, 16)} LIM`,
+        fmtARS(c.price),
+        `<span style="color:var(--text);font-weight:600">${fmtDollars(c.usd)}</span> pagando en dólares (sin impuestos al cambio)<br>`
+        + `${c.flight} · ${hm(c.duration)} · ${detail}`
+        + (prev ? `<br>antes ${prev.p == null ? "agotado" : fmtARS(prev.p)} · cambió ${when(hist[hist.length - 1].t)}` : "")
+        + (min ? `<br>mínimo visto ${fmtARS(min.p)} (${when(min.t)})` : "")
+        + `<br>${ago} · ${link}${err}`,
+        { tag: k === "sky" ? c.brand : "DIRECTO", best: c[key] === cheapest }
+      );
+    }).join("");
+  } catch (e) {
+    el.innerHTML = card("BUE → LIM", "—", `<span class="err">Error: ${e.message}</span>`);
+  }
+}
+
 async function loadEurUsdt() {
   try {
     const d = await getJSON("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT");
@@ -588,7 +637,7 @@ function recalc() {
 async function loadAll() {
   const btn = document.getElementById("refreshBtn");
   btn.disabled = true; btn.textContent = "Cargando…";
-  await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt(), loadSky()]);
+  await Promise.allSettled([loadStocks(), loadDollars(), loadEuro(), loadCrypto(), loadEurUsdt(), loadSky(), loadLim()]);
   seedCalc();
   renderDollars();
   renderGaps(live.dolares);

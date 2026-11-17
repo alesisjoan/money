@@ -19,14 +19,14 @@ KEY = "4c998b33d2aa4e8aba0f9a63d4c04d7d"
 MAX_HISTORY = 2000
 
 
-def search():
+def search(origin=ORIGIN, dest=DEST, date=DATE, currency=None):
     body = json.dumps({
-        "cabinClass": "Economy", "currency": None, "awardBooking": False,
+        "cabinClass": "Economy", "currency": currency, "awardBooking": False,
         "pointOfSale": "AR", "searchType": "BRANDED",
         "itineraryParts": [{
-            "origin": {"code": ORIGIN, "useNearbyLocations": False},
-            "destination": {"code": DEST, "useNearbyLocations": False},
-            "departureDate": {"date": DATE},
+            "origin": {"code": origin, "useNearbyLocations": False},
+            "destination": {"code": dest, "useNearbyLocations": False},
+            "departureDate": {"date": date},
             "selectedOfferRef": None, "plusMinusDays": None,
         }],
         "passengers": {"ADT": 1, "CHD": 0, "INF": 0, "PET": 0},
