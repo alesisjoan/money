@@ -23,7 +23,7 @@ jobs:
       # JetSMART needs a real browser to get past its anti-bot challenge
       - run: |
           pip install -q playwright
-          python3 -m playwright install --with-deps chromium-headless-shell
+          python3 -m playwright install --with-deps chromium
       # previous run's file carries the price history
       - run: |
           mkdir out

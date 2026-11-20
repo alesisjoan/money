@@ -79,7 +79,12 @@ def jetsmart():
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        # since 2026-11-19 the challenge shows a CAPTCHA to the headless shell
+        # and to anything with navigator.webdriver set: use full Chromium
+        # (new headless mode) without the automation flag
+        browser = p.chromium.launch(
+            channel="chromium",
+            args=["--disable-blink-features=AutomationControlled"])
         page = browser.new_page(locale="es-AR", user_agent=(
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"))
