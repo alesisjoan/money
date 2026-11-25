@@ -1,0 +1,83 @@
+{
+ "time": 1795580386,
+ "route": "BUE-LIM",
+ "date": "2027-01-28",
+ "sky": {
+  "url": "https://initial-sale.skyairline.com/es/argentina?origin=BUE&destination=LIM&departureDate=2027-01-28&arrivalDate=2027-01-28&flightType=OW&ADT=1",
+  "time": 1795580386,
+  "current": {
+   "price": 447920.3,
+   "fare": 218025,
+   "taxes": 229895.3,
+   "brand": "BASIC",
+   "seats": 1,
+   "from": "AEP",
+   "departure": "2027-01-28T09:00",
+   "arrival": "2027-01-28T11:35",
+   "duration": 275,
+   "flight": "H25572",
+   "usd": 236.9
+  },
+  "history": [
+   {
+    "t": 1794923991,
+    "p": 436826.3
+   },
+   {
+    "t": 1795088614,
+    "p": 438213
+   },
+   {
+    "t": 1795165966,
+    "p": 439599.8
+   },
+   {
+    "t": 1795245175,
+    "p": 443760
+   },
+   {
+    "t": 1795580386,
+    "p": 447920.3
+   }
+  ],
+  "error": null
+ },
+ "jetsmart": {
+  "url": "https://booking.jetsmart.com/Flight/InternalSelect?o1=BUE&d1=LIM&dd1=2027-01-28&ADT=1&CHD=0&inl=0&r=false&s=true&mon=true&cur=ARS&culture=es-AR&rc=AR",
+  "time": 1795580386,
+  "current": {
+   "price": 441680,
+   "usd": 232.55,
+   "club": 433460,
+   "from": "AEP",
+   "departure": "2027-01-28T06:10",
+   "arrival": "2027-01-28T08:55",
+   "duration": 285,
+   "flight": "JA7801",
+   "count": 1
+  },
+  "history": [
+   {
+    "t": 1794923991,
+    "p": 401136.37
+   },
+   {
+    "t": 1794954379,
+    "p": 402412.5
+   },
+   {
+    "t": 1795178954,
+    "p": 436160.37
+   },
+   {
+    "t": 1795197191,
+    "p": 437542.99
+   },
+   {
+    "t": 1795481964,
+    "p": 441680
+   }
+  ],
+  "error": null
+ }
+}
